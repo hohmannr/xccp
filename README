@@ -8,7 +8,7 @@ In order to build xccp you need the Xlib header files.
 
 Installation
 ------------
-Edit the Makefile for your prefered install location (by default it is installed to ~/.local/bin).
+Edit the Makefile for the right path to X11 lib and edit for your prefered install location (by default it is installed to ~/.local/bin).
 Then enter:
 
 	make clean install
