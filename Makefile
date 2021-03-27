@@ -1,6 +1,5 @@
 VERSION = 0.0.1
 
-
 PROJECT_NAME = xccp - X Console Colorpicker
 BIN_NAME = xccp
 
@@ -33,4 +32,3 @@ uninstall:
 
 clean:
 	rm -rf $(BIN_NAME)
-
