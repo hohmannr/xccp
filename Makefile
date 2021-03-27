@@ -15,7 +15,7 @@ CC = c89
 
 INSTALL_DIR = ~/.local/bin
 
-SRC = src/ccp.c
+SRC = src/xccp.c
 
 $(BIN_NAME):
 	$(CC) $(SRC) -o $(BIN_NAME) $(CFLAGS) $(LDFLAGS)
