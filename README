@@ -1,0 +1,26 @@
+xccp - X Console Colorpicker
+----------------------------
+xccp is a mouse driven colorpicker for the X windows server.
+
+Requirements
+------------
+In order to build xccp you need the Xlib header files.
+
+Installation
+------------
+Edit the Makefile for your prefered install location (by default it is installed to ~/.local/bin).
+Then enter:
+
+	make clean install
+
+Usage xccp
+------------
+To run, make sure that the install location is in your $PATH. Then just type:
+
+	xccp
+
+This will transform your cursor to a crosshair, simply click anywhere (on any standard mouse button) to recieve the color code of the pixel to stdout.
+
+For help run:
+
+	xccp -h
