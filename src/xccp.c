@@ -7,6 +7,8 @@
 #include <X11/cursorfont.h>
 #include <X11/Xutil.h>
 
+#define LEFT_MOUSE_BTN 1
+
 const char* helpstr = "usage:\n"
 	"\t%s [ -h | -x | -X ]\n"
 	"\n"
@@ -17,24 +19,27 @@ const char* helpstr = "usage:\n"
 	"flags:\n"
 	"\t-h\tprints this help and exits\n"
 	"\t-x\tchange color output to be in hexadecimal format\n"
-	"\t-X\tsame as -x but with capital hexadecimal digits\n";
+	"\t-X\tsame as -x but with capital hexadecimal digits\n"
+	"\t-c\tuse tool in continuous mode";
 
 enum ARGS {
-	ARG_HELP   = 1,
-	ARG_HEX	   = 1 << 1,
-	ARG_HEXCAP = 1 << 2,
+	ARG_HELP     = 1,
+	ARG_HEX      = 1 << 1,
+	ARG_HEXCAP   = 1 << 2,
+	ARG_CONTINUE = 1 << 3,
 };
 
 int parse_argv(unsigned *args_mask, int argc, char **argv);
-void mouse_wait_click(Display *dpy);
+int wait_input(Display *dpy, XEvent *event);
 int mouse_pos(Display *dpy, int *x, int *y);
 void pixel_color(Display *dpy, int x, int y, XColor *color);
 
 int main(int argc, char **argv) {
-	int ok, mouse_x, mouse_y;
+	int ok, cancel;
 	char *printstr;
 	XColor color;
 	unsigned args;
+	XEvent event;
 
 	ok = parse_argv(&args, argc, argv);
 	if(!ok) {
@@ -47,82 +52,66 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	/* init x-server connection */
+	/* init X server connection */
 	Display *dpy = XOpenDisplay(NULL);
 	assert(dpy);
 
-	/* wait for a mouse click, then get cursor location */
-	mouse_wait_click(dpy);
-	ok = mouse_pos(dpy, &mouse_x, &mouse_y);
-	if(!ok) {
-		fprintf(stderr, "error: Could not grab mouse pointer.\n");
-		XCloseDisplay(dpy);
-		return 1;
-	}
+	do {
+		/* wait for a mouse click, then get cursor location via gotten XEvent */
+		cancel = wait_input(dpy, &event);
+		if(cancel)
+			goto cleanup; /* I know a simple break statement would also do the job :D, wanted to try out linux kernel practices */
 
-	/* get color */
-	pixel_color(dpy, mouse_x, mouse_y, &color);
+		/* get color */
+		pixel_color(dpy, event.xbutton.x_root, event.xbutton.y_root, &color);
 
-	/* decide based on given args how to print*/
-	if(args & ARG_HEX)
-		printstr = "#%02x%02x%02x\n";
-	else if(args & ARG_HEXCAP)
-		printstr = "#%02X%02X%02X\n";
-	else
-		printstr = "(%d, %d, %d)\n";
+		/* decide based on given args how to print*/
+		if(args & ARG_HEX)
+			printstr = "#%02x%02x%02x\n";
+		else if(args & ARG_HEXCAP)
+			printstr = "#%02X%02X%02X\n";
+		else
+			printstr = "(%d, %d, %d)\n";
 
-	/* print colors in determined format (hex, HEX or rgb) */
-	printf(printstr, color.red/255, color.green/255, color.blue/255);
+		/* print colors in determined format (hex, HEX or rgb) */
+		printf(printstr, color.red/255, color.green/255, color.blue/255);
+	} while(args & ARG_CONTINUE); /* if continuous mode is given via args, repeat */
 	
+cleanup:
 	/* free */
 	XCloseDisplay(dpy);
 
 	return 0;
 }
 
-/* Changed cursor font to crosshair, waits for a button release (click) event of the mouse. */
-void mouse_wait_click(Display *dpy)
+/* Changes cursor font to crosshair, waits for a main mouse button release (click) event of the mouse. On other input returns cancel statement. */
+int wait_input(Display *dpy, XEvent *event)
 {
 	Window root;
-	XEvent event;
 	Cursor crosshair_cursor;
-	int clicked;
+	int clicked, cancel;
 
 	root = XDefaultRootWindow(dpy);
 
 	crosshair_cursor = XCreateFontCursor(dpy, XC_crosshair);
 	XGrabPointer(dpy, root, False, ButtonReleaseMask, GrabModeAsync,
         GrabModeAsync, root, crosshair_cursor, CurrentTime);
-	XSelectInput(dpy, root, ButtonReleaseMask);
-	clicked = 0;
+
+	clicked = cancel = 0;
 	while(!clicked) {
-		XNextEvent(dpy, &event);
-		switch(event.type) {
-			case ButtonRelease:
-				clicked = 1;
-				break;
-			default:
-				break;
+		XNextEvent(dpy, event);
+		if(event->type == ButtonRelease) {
+			clicked = 1;
+			/* check if button was  */
+			if(event->xbutton.button != LEFT_MOUSE_BTN)
+				cancel = 1;
 		}
 	}
 
 	/* free */
 	XUngrabPointer(dpy, CurrentTime);
-}
 
-/* Gets current mouse position. Returns if pointer query was succesful. */
-int mouse_pos(Display *dpy, int *x, int *y)
-{
-	int win_x, win_y;
-	Bool ok;
-	unsigned mask;
-	Window def_win, root_win, child_win;
-	
-	def_win = XDefaultRootWindow(dpy);
-	ok = XQueryPointer(dpy, def_win, &root_win, &child_win, x, y, &win_y, &win_y, &mask);
-	if(!ok)
-		return 0;
-	return 1;
+	return cancel;
 }
 
 /* Gets XColor from the pixel at x, y in root window. */
@@ -172,6 +161,8 @@ int parse_argv(unsigned *args_mask, int argc, char **argv)
 				*args_mask |= ARG_HEXCAP;
 			else
 				return 0;
+		else if(!strcmp(arg, "-c"))
+			*args_mask |= ARG_CONTINUE;
 		else
 			return 0;
 
