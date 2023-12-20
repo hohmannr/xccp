@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 			printstr = "(%d, %d, %d)\n";
 
 		/* print colors in determined format (hex, HEX or rgb) */
-		printf(printstr, color.red/255, color.green/255, color.blue/255);
+		printf(printstr, color.red/256, color.green/256, color.blue/256);
 	} while(args & ARG_CONTINUE); /* if continuous mode is given via args, repeat */
 	
 cleanup:
